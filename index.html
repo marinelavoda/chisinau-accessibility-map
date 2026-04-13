@@ -1,0 +1,568 @@
+<!--
+  Chisinau Wheelchair Accessibility Map — Prototype
+  =================================================
+  What this is:
+    A single-file interactive map showing wheelchair accessibility scores
+    for locations in Chisinau, Moldova. Built with Leaflet.js + OpenStreetMap.
+
+  How to add more locations:
+    Push a new object to the LOCATIONS array at the top of the <script>.
+    Required fields: name, address, lat, lng, score (0–100), status, criteria[].
+    Each criterion: { label, score (0–4), max (4) }.
+
+  Running:
+    npm run dev   — starts Vite dev server
+    No API key required.
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chisinau Accessibility Map</title>
+
+  <!-- Inter font -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      display: flex;
+      height: 100vh;
+      font-family: 'Inter', system-ui, sans-serif;
+      background: #f8f8f6;
+      color: #1a1a1a;
+    }
+
+    /* ── Sidebar ── */
+    #sidebar {
+      width: 300px;
+      flex-shrink: 0;
+      height: 100vh;
+      overflow-y: auto;
+      background: #ffffff;
+      border-right: 1px solid #e5e5e3;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .sidebar-header {
+      padding: 20px 18px 14px;
+      border-bottom: 1px solid #f0f0ee;
+    }
+
+    .sidebar-title {
+      font-size: 17px;
+      font-weight: 700;
+      color: #111;
+      letter-spacing: -0.3px;
+      line-height: 1.3;
+    }
+
+    .sidebar-subtitle {
+      font-size: 12px;
+      color: #999;
+      margin-top: 3px;
+      font-weight: 400;
+    }
+
+    /* ── Legend ── */
+    .legend {
+      padding: 12px 18px;
+      border-bottom: 1px solid #f0f0ee;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .legend-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #aaa;
+      margin-bottom: 2px;
+    }
+
+    .legend-items {
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 12px;
+      color: #555;
+    }
+
+    .legend-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    /* ── Location cards ── */
+    .cards-section {
+      padding: 10px 12px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .cards-heading {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #aaa;
+      padding: 4px 6px 2px;
+    }
+
+    .loc-card {
+      background: #fafaf9;
+      border: 1px solid #ebebea;
+      border-radius: 10px;
+      padding: 12px 13px;
+      cursor: pointer;
+      transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+    }
+
+    .loc-card:hover {
+      border-color: #d0d0ce;
+      background: #f5f5f3;
+      box-shadow: 0 1px 6px rgba(0,0,0,0.06);
+    }
+
+    .loc-card:active {
+      background: #f0f0ee;
+    }
+
+    .card-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+
+    .card-name {
+      font-size: 13.5px;
+      font-weight: 600;
+      color: #111;
+      line-height: 1.3;
+    }
+
+    .card-address {
+      font-size: 11.5px;
+      color: #888;
+      margin-top: 1px;
+      line-height: 1.4;
+    }
+
+    .score-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 38px;
+      padding: 2px 7px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 700;
+      color: #fff;
+      flex-shrink: 0;
+      line-height: 1.6;
+    }
+
+    /* ── Dot scale ── */
+    .criteria-list {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      margin-top: 8px;
+    }
+
+    .criterion-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+    }
+
+    .criterion-label {
+      font-size: 11px;
+      color: #666;
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .dot-scale {
+      display: flex;
+      gap: 3px;
+      flex-shrink: 0;
+    }
+
+    .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #e0e0de;
+    }
+
+    .dot.filled {
+      background: currentColor;
+    }
+
+    /* ── Map ── */
+    #map {
+      flex: 1;
+      height: 100vh;
+    }
+
+    /* ── Custom marker ── */
+    .custom-marker {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1px;
+    }
+
+    .marker-wheelchair {
+      font-size: 14px;
+      line-height: 1;
+      filter: drop-shadow(0 1px 2px rgba(0,0,0,0.25));
+    }
+
+    .marker-circle {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-size: 15px;
+      font-weight: 700;
+      font-family: 'Inter', system-ui, sans-serif;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.28);
+      border: 2.5px solid rgba(255,255,255,0.55);
+      letter-spacing: -0.5px;
+    }
+
+    /* ── Popup overrides ── */
+    .leaflet-popup-content-wrapper {
+      border-radius: 12px !important;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.13) !important;
+      border: 1px solid #e8e8e6 !important;
+      padding: 0 !important;
+    }
+
+    .leaflet-popup-content {
+      margin: 0 !important;
+      min-width: 280px !important;
+    }
+
+    .leaflet-popup-tip-container {
+      margin-top: -1px;
+    }
+
+    .leaflet-popup-tip {
+      box-shadow: none !important;
+    }
+
+    .popup-inner {
+      padding: 16px 17px 14px;
+    }
+
+    .popup-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .popup-name {
+      font-size: 14px;
+      font-weight: 700;
+      color: #111;
+      line-height: 1.3;
+    }
+
+    .popup-address {
+      font-size: 11.5px;
+      color: #888;
+      margin-top: 2px;
+    }
+
+    .popup-criteria {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .popup-criterion {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .popup-criterion-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .popup-criterion-label {
+      font-size: 12px;
+      color: #555;
+    }
+
+    .popup-criterion-value {
+      font-size: 11.5px;
+      font-weight: 600;
+      color: #333;
+    }
+
+    .popup-bar-track {
+      height: 4px;
+      background: #eeeeec;
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .popup-bar-fill {
+      height: 100%;
+      border-radius: 2px;
+      transition: width 0.3s ease;
+    }
+
+    .popup-footer {
+      font-size: 10.5px;
+      color: #aaa;
+      font-style: italic;
+      padding-top: 10px;
+      border-top: 1px solid #f0f0ee;
+      text-align: center;
+    }
+
+    /* ── Mobile ── */
+    @media (max-width: 640px) {
+      body { flex-direction: column; }
+
+      #sidebar {
+        width: 100%;
+        height: auto;
+        max-height: 45vh;
+        border-right: none;
+        border-bottom: 1px solid #e5e5e3;
+      }
+
+      #map {
+        flex: 1;
+        height: auto;
+        min-height: 55vh;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Sidebar -->
+  <div id="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-title">Chisinau Accessibility Map</div>
+      <div class="sidebar-subtitle">Prototype &nbsp;·&nbsp; 2 locations</div>
+    </div>
+
+    <div class="legend">
+      <div class="legend-label">Legend</div>
+      <div class="legend-items">
+        <div class="legend-item">
+          <div class="legend-dot" style="background:#639922;"></div>
+          <span>Accessible</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background:#ba7517;"></div>
+          <span>Partially accessible</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background:#e24b4a;"></div>
+          <span>Inaccessible</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="cards-section">
+      <div class="cards-heading">Locations</div>
+      <div id="location-cards"></div>
+    </div>
+  </div>
+
+  <!-- Map -->
+  <div id="map"></div>
+
+  <script type="module">
+    import L from 'leaflet';
+    import 'leaflet/dist/leaflet.css';
+
+    // ── Accessibility data ──────────────────────────────────────────────────
+    // To add more locations, push a new object here. No other changes needed.
+    const LOCATIONS = [
+      {
+        name: "Crosta Kitchen Bakery",
+        address: "Strada Miron Costin 13/7, Chișinău, MD-2000",
+        lat: 47.0308,
+        lng: 28.8348,
+        score: 38,
+        status: "Inaccessible",
+        criteria: [
+          { label: "Entrance steps",      score: 1, max: 4 },
+          { label: "Upper floors / lift", score: 3, max: 4 },
+          { label: "Internal barriers",   score: 1, max: 4 },
+          { label: "Accessible toilet",   score: 1, max: 4 },
+        ]
+      },
+      {
+        name: "Andy's Pizza",
+        address: "Strada Miron Costin 13/1, Chișinău",
+        lat: 47.0303,
+        lng: 28.8355,
+        score: 50,
+        status: "Partially accessible",
+        criteria: [
+          { label: "Entrance steps",      score: 1, max: 4 },
+          { label: "Upper floors / lift", score: 3, max: 4 },
+          { label: "Internal barriers",   score: 1, max: 4 },
+          { label: "Accessible toilet",   score: 3, max: 4 },
+        ]
+      }
+    ];
+
+    // ── Color helper ────────────────────────────────────────────────────────
+    function scoreColor(score) {
+      if (score >= 70) return '#639922';  // green  — Accessible
+      if (score >= 40) return '#ba7517';  // amber  — Partially accessible
+      return '#e24b4a';                    // red    — Inaccessible
+    }
+
+    // ── Map init ────────────────────────────────────────────────────────────
+    const map = L.map('map', {
+      center: [47.0305, 28.8352],
+      zoom: 17,
+      zoomControl: true,
+    });
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      maxZoom: 19,
+    }).addTo(map);
+
+    // ── Build popup HTML ────────────────────────────────────────────────────
+    function buildPopupHTML(loc) {
+      const color = scoreColor(loc.score);
+      const criteriaHTML = loc.criteria.map(c => {
+        const pct = Math.round((c.score / c.max) * 100);
+        return `
+          <div class="popup-criterion">
+            <div class="popup-criterion-top">
+              <span class="popup-criterion-label">${c.label}</span>
+              <span class="popup-criterion-value">${c.score}/${c.max}</span>
+            </div>
+            <div class="popup-bar-track">
+              <div class="popup-bar-fill" style="width:${pct}%;background:${color};"></div>
+            </div>
+          </div>`;
+      }).join('');
+
+      return `
+        <div class="popup-inner">
+          <div class="popup-header">
+            <div>
+              <div class="popup-name">${loc.name}</div>
+              <div class="popup-address">${loc.address}</div>
+            </div>
+            <div class="score-badge" style="background:${color};">${loc.score}</div>
+          </div>
+          <div class="popup-criteria">${criteriaHTML}</div>
+          <div class="popup-footer">Scores collected manually &nbsp;·&nbsp; Prototype only</div>
+        </div>`;
+    }
+
+    // ── Build sidebar card HTML ─────────────────────────────────────────────
+    function buildCardHTML(loc) {
+      const color = scoreColor(loc.score);
+      const criteriaHTML = loc.criteria.map(c => {
+        const dots = Array.from({ length: c.max }, (_, i) => {
+          const filled = i < c.score ? 'filled' : '';
+          return `<div class="dot ${filled}" style="${filled ? `color:${color};` : ''}"></div>`;
+        }).join('');
+        return `
+          <div class="criterion-row">
+            <span class="criterion-label">${c.label}</span>
+            <div class="dot-scale" style="color:${color};">${dots}</div>
+          </div>`;
+      }).join('');
+
+      return `
+        <div class="card-top">
+          <div>
+            <div class="card-name">${loc.name}</div>
+            <div class="card-address">${loc.address}</div>
+          </div>
+          <div class="score-badge" style="background:${color};">${loc.score}</div>
+        </div>
+        <div class="criteria-list">${criteriaHTML}</div>`;
+    }
+
+    // ── Render markers + sidebar cards ──────────────────────────────────────
+    const markers = [];
+    const cardsContainer = document.getElementById('location-cards');
+
+    LOCATIONS.forEach((loc) => {
+      const color = scoreColor(loc.score);
+
+      const icon = L.divIcon({
+        className: '',
+        html: `
+          <div class="custom-marker">
+            <span class="marker-wheelchair" style="color:${color};">♿</span>
+            <div class="marker-circle" style="background:${color};">${loc.score}</div>
+          </div>`,
+        iconSize: [44, 62],
+        iconAnchor: [22, 58],
+        popupAnchor: [0, -60],
+      });
+
+      const marker = L.marker([loc.lat, loc.lng], { icon })
+        .addTo(map)
+        .bindPopup(buildPopupHTML(loc), {
+          minWidth: 280,
+          maxWidth: 320,
+          className: 'clean-popup',
+        });
+
+      markers.push(marker);
+
+      const card = document.createElement('div');
+      card.className = 'loc-card';
+      card.innerHTML = buildCardHTML(loc);
+      card.addEventListener('click', () => {
+        map.setView([loc.lat, loc.lng], 17, { animate: true });
+        marker.openPopup();
+      });
+      cardsContainer.appendChild(card);
+    });
+  </script>
+</body>
+</html>
