@@ -250,7 +250,7 @@
       align-items: center;
       justify-content: center;
       color: #fff;
-      font-size: 12px;
+      font-size: 15px;
       font-weight: 700;
       font-family: 'Inter', system-ui, sans-serif;
       box-shadow: 0 2px 8px rgba(0,0,0,0.28);
@@ -418,39 +418,33 @@
 
     // ── Accessibility data ──────────────────────────────────────────────────
     // To add more locations, push a new object here. No other changes needed.
-    // Scale: each criterion scored 0–2, 4 criteria = max 8 per location.
-    // score = percentage (0–100) used for color thresholds.
     const LOCATIONS = [
       {
         name: "Crosta Kitchen Bakery",
-        address: "Strada Miron Costin 13/7, Chișinău, MD-2000",
-        lat: 47.0308,
-        lng: 28.8348,
-        totalScore: 6,
-        maxScore: 8,
-        score: 75,
-        status: "Accessible",
+        address: "Strada Miron Costin 13/7, MD-2000, Moldova",
+        lat: 47.0505858,
+        lng: 28.8642757,
+        score: 38,
+        status: "Inaccessible",
         criteria: [
-          { label: "Entrance steps",      score: 1, max: 2 },
-          { label: "Upper floors / lift", score: 2, max: 2 },
-          { label: "Internal barriers",   score: 1, max: 2 },
-          { label: "Accessible toilet",   score: 1, max: 2 },
+          { label: "Entrance steps",      score: 1, max: 4 },
+          { label: "Upper floors / lift", score: 3, max: 4 },
+          { label: "Internal barriers",   score: 1, max: 4 },
+          { label: "Accessible toilet",   score: 1, max: 4 },
         ]
       },
       {
         name: "Andy's Pizza",
-        address: "Strada Miron Costin 13/1, Chișinău",
-        lat: 47.0303,
-        lng: 28.8355,
-        totalScore: 8,
-        maxScore: 8,
-        score: 100,
-        status: "Accessible",
+        address: "Strada Miron Costin 13/1, Chișinău, Moldova",
+        lat: 47.0503714,
+        lng: 28.8664248,
+        score: 50,
+        status: "Partially accessible",
         criteria: [
-          { label: "Entrance steps",      score: 1, max: 2 },
-          { label: "Upper floors / lift", score: 2, max: 2 },
-          { label: "Internal barriers",   score: 1, max: 2 },
-          { label: "Accessible toilet",   score: 2, max: 2 },
+          { label: "Entrance steps",      score: 1, max: 4 },
+          { label: "Upper floors / lift", score: 3, max: 4 },
+          { label: "Internal barriers",   score: 1, max: 4 },
+          { label: "Accessible toilet",   score: 3, max: 4 },
         ]
       }
     ];
@@ -464,7 +458,7 @@
 
     // ── Map init ────────────────────────────────────────────────────────────
     const map = L.map('map', {
-      center: [47.0305, 28.8352],
+      center: [47.0505, 28.8653],
       zoom: 17,
       zoomControl: true,
     });
@@ -498,10 +492,7 @@
               <div class="popup-name">${loc.name}</div>
               <div class="popup-address">${loc.address}</div>
             </div>
-            <div style="text-align:right;flex-shrink:0;">
-              <div class="score-badge" style="background:${color};">${loc.totalScore}/${loc.maxScore}</div>
-              <div style="font-size:11px;color:#888;margin-top:3px;">${loc.score}%</div>
-            </div>
+            <div class="score-badge" style="background:${color};">${loc.score}</div>
           </div>
           <div class="popup-criteria">${criteriaHTML}</div>
           <div class="popup-footer">Scores collected manually &nbsp;·&nbsp; Prototype only</div>
@@ -529,10 +520,7 @@
             <div class="card-name">${loc.name}</div>
             <div class="card-address">${loc.address}</div>
           </div>
-          <div style="text-align:right;flex-shrink:0;">
-            <div class="score-badge" style="background:${color};">${loc.totalScore}/${loc.maxScore}</div>
-            <div style="font-size:10.5px;color:#888;margin-top:3px;">${loc.score}%</div>
-          </div>
+          <div class="score-badge" style="background:${color};">${loc.score}</div>
         </div>
         <div class="criteria-list">${criteriaHTML}</div>`;
     }
@@ -549,7 +537,7 @@
         html: `
           <div class="custom-marker">
             <span class="marker-wheelchair" style="color:${color};">♿</span>
-            <div class="marker-circle" style="background:${color};">${loc.score}%</div>
+            <div class="marker-circle" style="background:${color};">${loc.score}</div>
           </div>`,
         iconSize: [44, 62],
         iconAnchor: [22, 58],
